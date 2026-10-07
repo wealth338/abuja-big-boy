@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abuja Big Boy: Office Oga Simulator</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        
+        <!-- Header / HUD -->
+        <div class="bg-slate-800/80 p-4 border-b border-slate-700 flex flex-col gap-2">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-black text-amber-400 tracking-wider">ABUJA BIG BOY <span class="text-xs font-normal text-slate-400">v0.1</span></h1>
+                <div class="text-xs bg-slate-900 px-3 py-1 rounded-full border border-slate-700 text-slate-300">
+                    Day <span id="day-num" class="font-bold text-amber-400">1</span> | <span id="time-slot" class="text-emerald-400">Morning Commute</span>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-1">
+                <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-700">
+                    <div class="text-slate-400">Cash</div>
+                    <div id="stat-cash" class="font-bold text-emerald-400 text-sm">₦45,000</div>
+                </div>
+                <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-700">
+                    <div class="text-slate-400">Energy</div>
+                    <div id="stat-energy" class="font-bold text-cyan-400 text-sm">100%</div>
+                </div>
+                <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-700">
+                    <div class="text-slate-400">Stress</div>
+                    <div id="stat-stress" class="font-bold text-rose-400 text-sm">20%</div>
+                </div>
+                <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-700">
+                    <div class="text-slate-400">Connections</div>
+                    <div id="stat-connections" class="font-bold text-purple-400 text-sm">15 / 100</div>
+                </div>
+            </div>
+            <div class="text-[11px] text-slate-400 flex justify-between px-1">
+                <span>Base: <strong id="stat-location" class="text-slate-300">Kubwa Room</strong></span>
+                <span>Transport: <strong id="stat-transport" class="text-slate-300">Public Transit</strong></span>
+            </div>
+        </div>
+
+        <!-- Main Game Window / Scenario Card -->
+        <div class="p-6 flex-1 flex flex-col justify-between">
+            <div id="game-screen">
+                <div class="mb-4">
+                    <span id="event-tag" class="text-[10px] uppercase font-bold bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-md border border-amber-500/30">Morning Transit Wahala</span>
+                    <h2 id="event-title" class="text-lg font-bold text-white mt-3">The Expressway Standstill</h2>
+                </div>
+                <p id="event-desc" class="text-slate-300 text-sm leading-relaxed bg-slate-950/50 p-4 rounded-xl border border-slate-800/80 mb-6">
+                    You step out of your apartment in Kubwa for the morning commute into the Central Business Area. The expressway is completely locked down due to an official convoy movement.
+                </p>
+
+                <!-- Choices Container -->
+                <div id="choices-container" class="flex flex-col gap-3">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Game Over / Victory Modal (Hidden by default) -->
+            <div id="end-screen" class="hidden flex flex-col items-center justify-center text-center py-6">
+                <h2 id="end-title" class="text-2xl font-black text-amber-400 mb-2">Simulation Complete</h2>
+                <p id="end-message" class="text-slate-300 text-sm mb-6 max-w-md">You have survived the Abuja hustle and leveled up your status.</p>
+                <button onclick="restartGame()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-6 py-2.5 rounded-xl transition shadow-lg cursor-pointer">
+                    Start New Hustle
+                </button>
+            </div>
+        </div>
+
+        <!-- Activity Feed / Terminal Log -->
+        <div class="bg-slate-950 p-3 border-t border-slate-800 text-xs font-mono">
+            <div class="text-slate-500 mb-1">ACTIVITY LOG:</div>
+            <div id="log-box" class="h-16 overflow-y-auto text-slate-400 flex flex-col gap-1">
+                <div>> Initialized Abuja Big Boy v0.1. Welcome to the FCT.</div>
+                <div>> Started life in a cozy corner room in Kubwa.</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Game Logic Script -->
+    <script>
+        let player = {
+            day: 1,
+            phase: 0, // 0: Morning, 1: Office, 2: Evening
+            cash: 45000,
+            energy: 100,
+            stress: 20,
+            connections: 15,
+            locationTier: 0, // 0: Kubwa, 1: Gwarinpa Flat, 2: Maitama Duplex
+            locationName: "Kubwa Room",
+            transport: "Public Cab / Keke"
+        };
+
+        const locations = ["Kubwa Room", "Gwarinpa Apartment", "Maitama Luxury Duplex"];
+
+        // Pool of Abuja Scenarios across phases
+        const events = [
+            {
+                phase: 0,
+                tag: "Morning Transit Wahala",
+                title: "The Expressway Standstill",
+                desc: "You step out of your apartment for the morning commute into Central Area. Traffic from Kubwa is backed up for miles.",
+                choices: [
+                    { text: "Join the slow public cab and manage stress.", cash: -2000, energy: -15, stress: +10, conn: 0, log: "Paid ₦2,000 for public transport and survived slow traffic." },
+                    { text: "Pay extra for a bike (Okada) to weave through gridlock.", cash: -5000, energy: -10, stress: +20, conn: 0, log: "Paid ₦5,000 for an Okada ride, arriving early but shaken." },
+                    { text: "Work remotely from a local café with unstable Wi-Fi.", cash: -3000, energy: -5, stress: -5, conn: +5, log: "Spent ₦3,000 on coffee while working remotely." }
+                ]
+            },
+            {
+                phase: 0,
+                tag: "Morning Logistics",
+                title: "Fuel Price Adjustment",
+                desc: "At the filling station this morning, fuel pump prices have magically jumped overnight. The queue stretches onto the main road.",
+                choices: [
+                    { text: "Join the long queue to buy at official pump price.", cash: -4000, energy: -20, stress: +15, conn: 0, log: "Spent 2 hours in a fuel queue to save a few Naira." },
+                    { text: "Buy 'black market' fuel from roadside vendors to save time.", cash: -8000, energy: -5, stress: +5, conn: 0, log: "Bought expensive roadside fuel to avoid the queue." }
+                ]
+            },
+            {
+                phase: 1,
+                tag: "Ministry / Office wahala",
+                title: "The Director's Urgent File",
+                desc: "Your supervisor drops a heavy procurement file on your desk: 'Review this before 2 PM.' Just then, your phone buzzes with a networking opportunity in Wuse 2.",
+                choices: [
+                    { text: "Focus entirely on the file to earn official favor.", cash: +5000, energy: -15, stress: +10, conn: +10, log: "Impressed the Director with thorough file review (+₦5,000 bonus)." },
+                    { text: "Delegate the work and sneak out to meet the Wuse 2 contact.", cash: -10000, energy: -10, stress: -10, conn: +20, log: "Spent ₦10,000 networking in Wuse 2 and built strong connections." }
+                ]
+            },
+            {
+                phase: 1,
+                tag: "Office Drama",
+                title: "The Inverter Breakdown",
+                desc: "The office inverter battery gives a long dying beep, plunging your floor into darkness just as NEPA takes the grid.",
+                choices: [
+                    { text: "Quietly contribute cash to buy diesel for the backup generator.", cash: -6000, energy: -10, stress: -5, conn: +10, log: "Contributed ₦6,000 for office diesel. Colleagues appreciate you." },
+                    { text: "Use the opportunity to close your laptop and take a long lunch.", cash: -4000, energy: +10, stress: -15, conn: -5, log: "Skipped office darkness for an extended lunch break." }
+                ]
+            },
+            {
+                phase: 2,
+                tag: "Evening Social Circuit",
+                title: "The Gwarinpa Garden Invite",
+                desc: "Colleagues invite you to unwind at a popular neighborhood garden in Gwarinpa to gist about ministry politics over grilled fish.",
+                choices: [
+                    { text: "Honor the invitation and sponsor a round of drinks.", cash: -15000, energy: -10, stress: -25, conn: +15, log: "Spent ₦15,000 treating friends at the garden. Stress relieved!" },
+                    { text: "Decline politely and go straight home to rest.", cash: 0, energy: +30, stress: -10, conn: -5, log: "Went straight home to rest and recharge your energy." }
+                ]
+            },
+            {
+                phase: 2,
+                tag: "Unexpected Bills",
+                title: "The 'Uncle in Lagos' Call",
+                desc: "Your phone rings. It's a relative calling from out of town asking for urgent financial assistance for transport.",
+                choices: [
+                    { text: "Send them ₦10,000 support to maintain good family grace.", cash: -10000, energy: -5, stress: +5, conn: +5, log: "Sent ₦10,000 family support." },
+                    { text: "Tell them network is breaking up and switch off your phone.", cash: 0, energy: 0, stress: +10, conn: -10, log: "Ignored family call to preserve your cash." }
+                ]
+            }
+        ];
+
+        function updateHUD() {
+            document.getElementById('day-num').innerText = player.day;
+            document.getElementById('stat-cash').innerText = '₦' + player.cash.toLocaleString();
+            document.getElementById('stat-energy').innerText = player.energy + '%';
+            document.getElementById('stat-stress').innerText = player.stress + '%';
+            document.getElementById('stat-connections').innerText = player.connections + ' / 100';
+            document.getElementById('stat-location').innerText = player.locationName;
+            document.getElementById('stat-transport').innerText = player.transport;
+
+            let phaseName = "Morning Commute";
+            if (player.phase === 1) phaseName = "Office / Hustle Window";
+            if (player.phase === 2) phaseName = "Evening Wind-Down";
+            document.getElementById('time-slot').innerText = phaseName;
+        }
+
+        function addLog(text) {
+            const logBox = document.getElementById('log-box');
+            const div = document.createElement('div');
+            div.innerText = '> ' + text;
+            logBox.prepend(div);
+        }
+
+        function loadEvent() {
+            // Check win condition or bankruptcy
+            if (player.cash <= 0) {
+                triggerEndGame("Broke & Stranded!", "Your cash ran out completely. You had to relocate back to your village in shame.");
+                return;
+            }
+            if (player.stress >= 100) {
+                triggerEndGame("Burnout Hospitalization!", "Your stress levels hit maximum capacity. You collapsed at your desk and were rushed to the clinic.");
+                return;
+            }
+            if (player.connections >= 50 && player.locationTier === 0) {
+                player.locationTier = 1;
+                player.locationName = "Gwarinpa Apartment";
+                player.transport = "Tokunbo Sedan";
+                addLog("🎉 Milestone Reached! Upgraded to a flat in Gwarinpa and bought a car.");
+            }
+            if (player.connections >= 90 && player.locationTier === 1) {
+                player.locationTier = 2;
+                player.locationName = "Maitama Luxury Duplex";
+                player.transport = "Chauffeur SUV";
+                triggerEndGame("Abuja Big Boy Status Achieved!", "Legendary status! You secured massive government contracts and now cruise around Maitama like a true Oga.");
+                return;
+            }
+
+            // Filter events matching current phase
+            const availableEvents = events.filter(e => e.phase === player.phase);
+            const randomEvent = availableEvents[Math.floor(Math.random() * availableEvents.length)];
+
+            document.getElementById('event-tag').innerText = randomEvent.tag;
+            document.getElementById('event-title').innerText = randomEvent.title;
+            document.getElementById('event-desc').innerText = randomEvent.desc;
+
+            const container = document.getElementById('choices-container');
+            container.innerHTML = '';
+
+            randomEvent.choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left bg-slate-800 hover:bg-slate-700 hover:border-amber-500/50 border border-slate-700/80 p-3.5 rounded-xl text-sm transition cursor-pointer flex justify-between items-center group";
+                
+                let badgeColor = "text-emerald-400";
+                if (choice.cash < 0) badgeColor = "text-rose-400";
+                if (choice.cash === 0) badgeColor = "text-slate-400";
+
+                btn.innerHTML = `
+                    <span class="text-slate-200 group-hover:text-amber-300 transition">${choice.text}</span>
+                    <span class="text-xs font-mono font-bold ${badgeColor} whitespace-nowrap ml-2">${choice.cash >= 0 ? '+' : ''}₦${choice.cash.toLocaleString()}</span>
+                `;
+
+                btn.onclick = () => makeChoice(choice);
+                container.appendChild(btn);
+            });
+        }
+
+        function makeChoice(choice) {
+            player.cash += choice.cash;
+            player.energy = Math.max(0, Math.min(100, player.energy + choice.energy));
+            player.stress = Math.max(0, Math.min(100, player.stress + choice.stress));
+            player.connections = Math.max(0, Math.min(100, player.connections + choice.conn));
+
+            addLog(choice.log);
+
+            // Advance phase or day
+            player.phase++;
+            if (player.phase > 2) {
+                player.phase = 0;
+                player.day++;
+                // Daily passive income / rent deduction
+                let rent = player.locationTier === 0 ? 3000 : (player.locationTier === 1 ? 8000 : 20000);
+                player.cash -= rent;
+                player.energy = Math.min(100, player.energy + 20); // Sleep recovery
+                addLog(`Day ${player.day} begins. Paid ₦${rent.toLocaleString()} daily upkeep & rent.`);
+            }
+
+            updateHUD();
+            loadEvent();
+        }
+
+        function triggerEndGame(title, message) {
+            document.getElementById('game-screen').classList.add('hidden');
+            const endScreen = document.getElementById('end-screen');
+            endScreen.classList.remove('hidden');
+            document.getElementById('end-title').innerText = title;
+            document.getElementById('end-message').innerText = message;
+        }
+
+        function restartGame() {
+            player = {
+                day: 1,
+                phase: 0,
+                cash: 45000,
+                energy: 100,
+                stress: 20,
+                connections: 15,
+                locationTier: 0,
+                locationName: "Kubwa Room",
+                transport: "Public Cab / Keke"
+            };
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('log-box').innerHTML = '<div>> Restarted simulation. Welcome back to Kubwa.</div>';
+            updateHUD();
+            loadEvent();
+        }
+
+        // Initialize on load
+        updateHUD();
+        loadEvent();
+    </script>
+</body>
+</html>
